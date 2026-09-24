@@ -15,6 +15,10 @@ const DOM = {
   radiusVal: document.getElementById('radius-val'),
   refreshInput: document.getElementById('auto-refresh'),
   postcodeInput: document.getElementById('postcode'),
+  recordsInput: document.getElementById('records'),
+  recordsVal: document.getElementById('records-val'),
+  transparencyInput: document.getElementById('transparency'),
+  transparencyVal: document.getElementById('transparency-val'),
   saveBtn: document.getElementById('save-settings')
 };
 
@@ -31,6 +35,16 @@ DOM.settingsBtn.addEventListener('click', () => {
 
 DOM.radiusInput.addEventListener('input', (e) => {
   DOM.radiusVal.textContent = e.target.value;
+});
+
+DOM.recordsInput.addEventListener('input', (e) => {
+  DOM.recordsVal.textContent = e.target.value;
+});
+
+DOM.transparencyInput.addEventListener('input', (e) => {
+  DOM.transparencyVal.textContent = `${e.target.value}%`;
+  const alpha = e.target.value / 100;
+  document.documentElement.style.setProperty('--bg-color', `rgba(20, 20, 25, ${alpha})`);
 });
 
 DOM.saveBtn.addEventListener('click', async () => {
@@ -199,8 +213,9 @@ function renderArrivals(station, arrivals) {
     // Sort by time
     arrivals.sort((a, b) => a.timeToStation - b.timeToStation);
     
-    // Take top 3 for compactness
-    const topArrivals = arrivals.slice(0, 3);
+    // Take top N for compactness
+    const maxRecords = parseInt(DOM.recordsInput.value) || 3;
+    const topArrivals = arrivals.slice(0, maxRecords);
       
     topArrivals.forEach(arr => {
       const safeLine = (arr.lineId || arr.lineName).replace(/'/g, "\\'");
