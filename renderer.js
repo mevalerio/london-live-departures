@@ -2,6 +2,7 @@ const METERS_PER_MILE = 1609.34;
 let userLat = 51.5074;
 let userLon = -0.1278; // Default to central London if IP fails
 let refreshInterval;
+let allArrivals = {};
 
 const DOM = {
   loader: document.getElementById('loader'),
@@ -201,14 +202,16 @@ function renderArrivals(station, arrivals) {
     const topArrivals = arrivals.slice(0, 3);
       
     topArrivals.forEach(arr => {
+      const safeLine = (arr.lineId || arr.lineName).replace(/'/g, "\\'");
       html += `
-        <div class="arrival-item">
+        <div class="arrival-item" onclick="window.toggleNextArrivals(this, '${station.naptanId}', '${safeLine}')" style="cursor: pointer;" title="Click to see later arrivals">
           <div class="route-info">
             <span class="line-badge ${getBadgeClass(arr.modeName)}">${arr.lineId || arr.lineName}</span>
             <span class="destination">${arr.destinationName}</span>
           </div>
           <div class="time-info">${formatTime(arr.timeToStation, arr.status)}</div>
         </div>
+        <div class="next-arrivals hidden"></div>
       `;
     });
   }
@@ -244,6 +247,7 @@ async function initDashboard() {
     // Fetch arrivals for each station
     for (const station of topStations) {
       const arrivals = await fetchArrivals(station.naptanId, station.commonName);
+      allArrivals[station.naptanId] = arrivals;
       fullHtml += renderArrivals(station, arrivals);
     }
     
@@ -278,6 +282,7 @@ async function updateArrivalsSilently(radiusMeters) {
     let fullHtml = '';
     for (const station of topStations) {
       const arrivals = await fetchArrivals(station.naptanId, station.commonName);
+      allArrivals[station.naptanId] = arrivals;
       fullHtml += renderArrivals(station, arrivals);
     }
     if (fullHtml) {
@@ -293,5 +298,31 @@ async function bootstrap() {
   await getLocation();
   initDashboard();
 }
+
+window.toggleNextArrivals = function(element, stationId, lineName) {
+  const nextDiv = element.nextElementSibling;
+  if (!nextDiv.classList.contains('hidden')) {
+     nextDiv.classList.add('hidden');
+     return;
+  }
+  
+  const arrivals = allArrivals[stationId] || [];
+  const lineArrivals = arrivals.filter(a => (a.lineId || a.lineName) === lineName);
+  
+  if (lineArrivals.length <= 1) {
+     nextDiv.innerHTML = '<div style="font-size: 11px; padding: 4px 12px; color: var(--text-secondary);">No further arrivals scheduled</div>';
+  } else {
+     let subHtml = '';
+     for (let i = 1; i < lineArrivals.length; i++) {
+        const arr = lineArrivals[i];
+        subHtml += `<div style="font-size: 11px; padding: 3px 12px; color: var(--text-secondary); display: flex; justify-content: space-between;">
+           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">Next: ${arr.destinationName}</span>
+           <span>${formatTime(arr.timeToStation, arr.status)}</span>
+        </div>`;
+     }
+     nextDiv.innerHTML = subHtml;
+  }
+  nextDiv.classList.remove('hidden');
+};
 
 bootstrap();

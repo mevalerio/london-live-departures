@@ -308,3 +308,14 @@ input[type=text]:focus {
   font-size: 14px;
   padding: 20px;
 }
+
+.next-arrivals {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  margin: 0 8px 8px 8px;
+  padding: 4px 0;
+  animation: slideDown 0.2s ease-out;
+}
+.next-arrivals.hidden {
+  display: none;
+}
