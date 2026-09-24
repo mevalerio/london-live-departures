@@ -79,3 +79,13 @@ app.on('window-all-closed', () => {
 ipcMain.on('close-widget', () => {
   if (mainWindow) mainWindow.hide();
 });
+
+ipcMain.on('check-updates', () => {
+  autoUpdater.checkForUpdates().then((updateCheckResult) => {
+    if (!updateCheckResult || !updateCheckResult.updateInfo) {
+      dialog.showMessageBox({ type: 'info', title: 'Up to Date', message: 'You are currently on the latest version!' });
+    }
+  }).catch(err => {
+    dialog.showErrorBox('Update Error', 'Failed to check for updates:\n' + err.toString());
+  });
+});

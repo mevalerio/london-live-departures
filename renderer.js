@@ -19,14 +19,21 @@ const DOM = {
   recordsVal: document.getElementById('records-val'),
   transparencyInput: document.getElementById('transparency'),
   transparencyVal: document.getElementById('transparency-val'),
-  saveBtn: document.getElementById('save-settings')
+  saveBtn: document.getElementById('save-settings'),
+  checkUpdatesBtn: document.getElementById('check-updates-btn')
 };
 
 // Controls
 if (window.electronAPI) {
   DOM.closeBtn.addEventListener('click', () => window.electronAPI.closeWidget());
+  if (DOM.checkUpdatesBtn) {
+    DOM.checkUpdatesBtn.addEventListener('click', () => {
+      window.electronAPI.checkUpdates();
+    });
+  }
 } else {
   DOM.closeBtn.style.display = 'none'; // hide if not in electron
+  if (DOM.checkUpdatesBtn) DOM.checkUpdatesBtn.style.display = 'none';
 }
 
 DOM.settingsBtn.addEventListener('click', () => {

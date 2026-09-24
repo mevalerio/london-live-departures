@@ -1,7 +1,7 @@
 {
   "name": "london-live-departures",
   "productName": "London Live Departures",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A beautiful, frameless desktop widget for live London Transport (TfL) and National Rail arrivals.",
   "repository": {
     "type": "git",
