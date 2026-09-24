@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
@@ -29,6 +29,19 @@ app.whenReady().then(() => {
   createWindow();
   
   autoUpdater.checkForUpdatesAndNotify();
+  
+  autoUpdater.on('update-downloaded', () => {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: 'A new version of London Live Departures has been downloaded. Would you like to restart the app and install it now?',
+      buttons: ['Restart and Install', 'Later']
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
   
   // Create the tray icon
   const iconPath = path.join(__dirname, 'build', 'icon.png');
