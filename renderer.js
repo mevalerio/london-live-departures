@@ -205,8 +205,11 @@ function renderArrivals(station, arrivals) {
     topArrivals.forEach(arr => {
       const safeLine = (arr.lineId || arr.lineName).replace(/'/g, "\\'");
       const safeDest = (arr.destinationName || '').replace(/'/g, "\\'");
-      const platformText = arr.platformName ? `Plat ${arr.platformName.replace('Platform ', '').replace('platform ', '')}` : (arr.platform ? `Plat ${arr.platform}` : '');
-      const platformBadge = platformText ? `<span style="font-size: 11px; background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px; margin-left: 6px; color: #d0d0d0; white-space: nowrap;">${platformText}</span>` : '';
+      let platformBadge = '';
+      if (arr.modeName !== 'bus' && arr.modeName !== 'tube' && arr.modeName !== 'underground') {
+        const platformText = arr.platformName ? `Plat ${arr.platformName.replace(/Platform /ig, '')}` : (arr.platform ? `Plat ${arr.platform}` : '');
+        platformBadge = platformText ? `<span style="font-size: 11px; background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px; margin-left: 6px; color: #d0d0d0; white-space: nowrap;">${platformText}</span>` : '';
+      }
       
       html += `
         <div class="arrival-item" onclick="window.toggleNextArrivals(this, '${station.naptanId}', '${safeLine}', '${safeDest}')" style="cursor: pointer;" title="Click to see later arrivals">
