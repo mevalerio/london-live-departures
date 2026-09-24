@@ -94,10 +94,24 @@ async function getLocation() {
   return new Promise((resolve) => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           userLat = position.coords.latitude;
           userLon = position.coords.longitude;
-          DOM.locationText.textContent = 'Precise Location';
+          try {
+            const res = await fetch(`https://api.postcodes.io/postcodes?lon=${userLon}&lat=${userLat}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.result && data.result.length > 0) {
+                DOM.locationText.textContent = data.result[0].admin_ward || data.result[0].postcode || 'Precise Location';
+              } else {
+                DOM.locationText.textContent = 'Precise Location';
+              }
+            } else {
+              DOM.locationText.textContent = 'Precise Location';
+            }
+          } catch(e) {
+            DOM.locationText.textContent = 'Precise Location';
+          }
           resolve();
         },
         async (error) => {
