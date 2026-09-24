@@ -21,6 +21,7 @@
       "target": "nsis"
     },
     "nsis": {
+      "artifactName": "London.Live.Departures.Setup.exe",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true

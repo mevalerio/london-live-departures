@@ -3,10 +3,9 @@
 A beautiful, frameless desktop widget built with **Electron** and **Vanilla JS** that brings the live transport boards of London (and National Rail) straight to your desktop.
 
 <div align="center">
-  <a href="https://github.com/YOUR_USERNAME/london-live-departures/releases/latest/download/London.Live.Departures.Setup.exe">
+  <a href="https://github.com/mevalerio/london-live-departures/releases/latest/download/London.Live.Departures.Setup.exe">
     <img src="https://img.shields.io/badge/Download_for_Windows-.exe-007aff?style=for-the-badge&logo=windows" alt="Download .exe" />
   </a>
-  <p><em>(Replace the URL above with your actual GitHub Releases link after publishing)</em></p>
 </div>
 
 ## 🛠️ How to Set It Up (For Users)
