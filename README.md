@@ -2,6 +2,26 @@
 
 A beautiful, frameless desktop widget built with **Electron** and **Vanilla JS** that brings the live transport boards of London (and National Rail) straight to your desktop.
 
+<div align="center">
+  <a href="https://github.com/YOUR_USERNAME/tfl-live-widget/releases/latest/download/TfL.Live.Widget.Setup.exe">
+    <img src="https://img.shields.io/badge/Download_for_Windows-.exe-007aff?style=for-the-badge&logo=windows" alt="Download .exe" />
+  </a>
+  <p><em>(Replace the URL above with your actual GitHub Releases link after publishing)</em></p>
+</div>
+
+## 🛠️ How to Set It Up (For Users)
+
+1. **Download**: Click the download button above to get the latest `.exe` installer.
+2. **Install**: Double-click the downloaded file. 
+   *(Note: Windows SmartScreen might show a warning since the app isn't signed. Click **"More Info"** -> **"Run anyway"**).*
+3. **Run**: The widget will seamlessly appear on your desktop.
+4. **Configure**: Click the **⚙️ Gear Icon** in the widget to open Settings:
+   - Enter your **UK Postcode** for pinpoint street-level accuracy.
+   - Adjust the search **Radius** (0.5 to 5 miles).
+   - Set how often you want the live departure boards to refresh.
+
+---
+
 ## ✨ Features
 - **True Desktop Widget:** Runs as a frameless, transparent glassmorphic window hovering over your desktop.
 - **TfL Unified API:** Fetches accurate, live arrival boards for nearby Tube, Bus, DLR, and Overground stations.
