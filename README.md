@@ -1,7 +1,7 @@
 # London Live Departures
 
 <div align="center">
-  <img src="assets/hero-icon.png?v=3" width="150" alt="London Live Departures Logo" />
+  <img src="assets/hero-icon-vf.jpg" width="150" alt="London Live Departures Logo" />
 </div>
 
 A beautiful, frameless desktop widget built with **Electron** and **Vanilla JS** that brings the live transport boards of London (and National Rail) straight to your desktop.
