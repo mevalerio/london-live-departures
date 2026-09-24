@@ -169,7 +169,8 @@ async function fetchArrivals(stationId, stationName) {
               lineName: ts.operator || 'National Rail',
               destinationName: (ts.destination && ts.destination.length > 0) ? ts.destination[0].locationName : 'Unknown',
               timeToStation: Math.max(0, minutes * 60),
-              status: ts.etd
+              status: ts.etd,
+              platform: ts.platform || ''
             };
           });
         }
@@ -203,11 +204,14 @@ function renderArrivals(station, arrivals) {
       
     topArrivals.forEach(arr => {
       const safeLine = (arr.lineId || arr.lineName).replace(/'/g, "\\'");
+      const platformText = arr.platformName ? `Plat ${arr.platformName.replace('Platform ', '').replace('platform ', '')}` : (arr.platform ? `Plat ${arr.platform}` : '');
+      const platformBadge = platformText ? `<span style="font-size: 11px; background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px; margin-left: 6px; color: #d0d0d0; white-space: nowrap;">${platformText}</span>` : '';
+      
       html += `
         <div class="arrival-item" onclick="window.toggleNextArrivals(this, '${station.naptanId}', '${safeLine}')" style="cursor: pointer;" title="Click to see later arrivals">
           <div class="route-info">
             <span class="line-badge ${getBadgeClass(arr.modeName)}">${arr.lineId || arr.lineName}</span>
-            <span class="destination">${arr.destinationName}</span>
+            <span class="destination">${arr.destinationName}${platformBadge}</span>
           </div>
           <div class="time-info">${formatTime(arr.timeToStation, arr.status)}</div>
         </div>
