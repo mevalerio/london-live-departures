@@ -1,9 +1,9 @@
-# TfL Live Arrivals Widget
+# London Live Departures
 
 A beautiful, frameless desktop widget built with **Electron** and **Vanilla JS** that brings the live transport boards of London (and National Rail) straight to your desktop.
 
 <div align="center">
-  <a href="https://github.com/YOUR_USERNAME/tfl-live-widget/releases/latest/download/TfL.Live.Widget.Setup.exe">
+  <a href="https://github.com/YOUR_USERNAME/london-live-departures/releases/latest/download/London.Live.Departures.Setup.exe">
     <img src="https://img.shields.io/badge/Download_for_Windows-.exe-007aff?style=for-the-badge&logo=windows" alt="Download .exe" />
   </a>
   <p><em>(Replace the URL above with your actual GitHub Releases link after publishing)</em></p>
@@ -33,8 +33,8 @@ A beautiful, frameless desktop widget built with **Electron** and **Vanilla JS**
 
 1. **Clone the repository:**
    ```bash
-   git clone <your-repo-url>
-   cd tfl-live-widget
+   git clone https://github.com/YOUR_USERNAME/london-live-departures.git
+   cd london-live-departures
    ```
 2. **Install dependencies:**
    ```bash
@@ -54,7 +54,7 @@ If you want to build a standalone executable `.exe` (or Mac `.dmg` / Linux AppIm
    npm run build
    ```
 2. **Find the installer:**
-   Look inside the newly created `dist/` directory. You will find a `TfL Live Widget Setup.exe` ready to be distributed!
+   Look inside the newly created `dist/` directory. You will find a `London Live Departures Setup.exe` ready to be distributed!
 
 ## ⚙️ Configuration
 The widget allows you to configure its behavior directly from its UI:
