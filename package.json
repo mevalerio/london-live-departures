@@ -3,6 +3,10 @@
   "productName": "London Live Departures",
   "version": "1.0.0",
   "description": "A beautiful, frameless desktop widget for live London Transport (TfL) and National Rail arrivals.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mevalerio/london-live-departures.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -17,6 +21,9 @@
   },
   "build": {
     "appId": "com.github.london-live-departures",
+    "publish": {
+      "provider": "github"
+    },
     "win": {
       "target": "nsis"
     },
@@ -32,5 +39,8 @@
     "linux": {
       "target": "AppImage"
     }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
