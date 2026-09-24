@@ -168,9 +168,11 @@ async function fetchArrivals(stationId, stationName) {
 }
 
 function renderArrivals(station, arrivals) {
+  const letterBadge = station.stopLetter ? `<span style="background: rgba(255,255,255,0.2); font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; white-space: nowrap; vertical-align: middle;">Stop ${station.stopLetter.replace('Stop ', '')}</span>` : '';
+
   let html = `<div class="station-card">
     <div class="station-header">
-      <div class="station-name">${station.commonName}</div>
+      <div class="station-name" style="display: flex; align-items: center;">${station.commonName}${letterBadge}</div>
       <div class="station-distance">${Math.round(station.distance)}m</div>
     </div>
     <div class="arrival-list">`;
