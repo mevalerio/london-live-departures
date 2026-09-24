@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TfL Live Arrivals Widget</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="widget-container">
+    <header class="header">
+      <div class="title-container">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        <div class="title-text">
+          <h1>TfL Live</h1>
+          <p id="location-text">Locating...</p>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="settings-btn" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+        <button id="close-btn" title="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="settings-panel" class="hidden">
+      <h3>Settings</h3>
+      <div class="setting-item">
+        <label for="postcode">Postcode (for exact precision):</label>
+        <input type="text" id="postcode" placeholder="e.g. SW1A 1AA">
+      </div>
+      <div class="setting-item">
+        <label for="radius">Radius (miles): <span id="radius-val">1</span></label>
+        <input type="range" id="radius" min="0.5" max="5" step="0.5" value="1">
+      </div>
+      <div class="setting-item">
+        <label for="auto-refresh">Refresh every:</label>
+        <select id="auto-refresh">
+          <option value="30">30s</option>
+          <option value="60" selected>1 min</option>
+          <option value="300">5 min</option>
+        </select>
+      </div>
+      <button id="save-settings" class="btn-primary">Apply</button>
+    </div>
+
+    <div class="content" id="content">
+      <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <p>Fetching nearby stations...</p>
+      </div>
+      <div id="stations-container"></div>
+    </div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
