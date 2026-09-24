@@ -204,11 +204,12 @@ function renderArrivals(station, arrivals) {
       
     topArrivals.forEach(arr => {
       const safeLine = (arr.lineId || arr.lineName).replace(/'/g, "\\'");
+      const safeDest = (arr.destinationName || '').replace(/'/g, "\\'");
       const platformText = arr.platformName ? `Plat ${arr.platformName.replace('Platform ', '').replace('platform ', '')}` : (arr.platform ? `Plat ${arr.platform}` : '');
       const platformBadge = platformText ? `<span style="font-size: 11px; background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px; margin-left: 6px; color: #d0d0d0; white-space: nowrap;">${platformText}</span>` : '';
       
       html += `
-        <div class="arrival-item" onclick="window.toggleNextArrivals(this, '${station.naptanId}', '${safeLine}')" style="cursor: pointer;" title="Click to see later arrivals">
+        <div class="arrival-item" onclick="window.toggleNextArrivals(this, '${station.naptanId}', '${safeLine}', '${safeDest}')" style="cursor: pointer;" title="Click to see later arrivals">
           <div class="route-info">
             <span class="line-badge ${getBadgeClass(arr.modeName)}">${arr.lineId || arr.lineName}</span>
             <span class="destination">${arr.destinationName}${platformBadge}</span>
@@ -303,7 +304,7 @@ async function bootstrap() {
   initDashboard();
 }
 
-window.toggleNextArrivals = function(element, stationId, lineName) {
+window.toggleNextArrivals = function(element, stationId, lineName, destinationName) {
   const nextDiv = element.nextElementSibling;
   if (!nextDiv.classList.contains('hidden')) {
      nextDiv.classList.add('hidden');
@@ -311,7 +312,7 @@ window.toggleNextArrivals = function(element, stationId, lineName) {
   }
   
   const arrivals = allArrivals[stationId] || [];
-  const lineArrivals = arrivals.filter(a => (a.lineId || a.lineName) === lineName);
+  const lineArrivals = arrivals.filter(a => (a.lineId || a.lineName) === lineName && a.destinationName === destinationName);
   
   if (lineArrivals.length <= 1) {
      nextDiv.innerHTML = '<div style="font-size: 11px; padding: 4px 12px; color: var(--text-secondary);">No further arrivals scheduled</div>';
