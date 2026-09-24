@@ -324,8 +324,8 @@ window.toggleNextArrivals = function(element, stationId, lineName, destinationNa
      for (let i = 1; i < lineArrivals.length; i++) {
         const arr = lineArrivals[i];
         subHtml += `<div style="font-size: 11px; padding: 3px 12px; color: var(--text-secondary); display: flex; justify-content: space-between;">
-           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">Next: ${arr.destinationName}</span>
-           <span>${formatTime(arr.timeToStation, arr.status)}</span>
+           <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;">Next: ${arr.destinationName}</span>
+           <span style="flex-shrink: 0; margin-left: 8px;">${formatTime(arr.timeToStation, arr.status)}</span>
         </div>`;
      }
      nextDiv.innerHTML = subHtml;
