@@ -67,3 +67,7 @@ The widget allows you to configure its behavior directly from its UI:
 
 ## 📄 License
 MIT License
+
+
+## 🎙️ Alexa Skill & Echo Show Widget (In Progress)
+We are currently developing an Alexa Skill version of this project! The goal is to bring the same frameless, auto-locating departure board directly to Amazon Echo Show smart displays as a persistent widget. Check out the `alexa-skill/` directory for the backend Node.js code that fetches the TfL data and handles voice intents.
