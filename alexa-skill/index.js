@@ -2,50 +2,42 @@ const Alexa = require('ask-sdk-core');
 const axios = require('axios');
 
 const departureBoardDocument = {
-    type: 'APL',
-    version: '2023.2',
-    mainTemplate: {
-        parameters: ['payload'],
-        item: {
-            type: 'Container',
-            width: '100%',
-            height: '100%',
-            backgroundColor: '#111111',
-            alignItems: 'center',
-            justifyContent: 'center',
-            items: [
+    "type": "APL",
+    "version": "2023.2",
+    "theme": "dark",
+    "mainTemplate": {
+        "parameters": ["trainList", "headerData"],
+        "item": {
+            "type": "Container",
+            "width": "100%",
+            "height": "100%",
+            "backgroundColor": "#111111",
+            "paddingLeft": "16dp",
+            "paddingRight": "16dp",
+            "paddingTop": "16dp",
+            "items": [
                 {
-                    type: 'Text',
-                    text: '${payload.departureData.stationName}',
-                    fontSize: '50dp',
-                    color: '#FFFFFF',
-                    fontWeight: 'bold',
-                    paddingBottom: '20dp'
+                    "type": "Text",
+                    "text": "${headerData.properties.stationName}",
+                    "fontSize": "30dp",
+                    "color": "#FFFFFF",
+                    "fontWeight": "bold",
+                    "paddingBottom": "20dp",
+                    "maxLines": 1
                 },
                 {
-                    type: 'Frame',
-                    backgroundColor: '#222222',
-                    borderRadius: '15dp',
-                    padding: '30dp',
-                    width: '80%',
-                    items: [
-                        {
-                            type: 'Text',
-                            text: '${payload.departureData.lineName} Line to ${payload.departureData.destination}',
-                            fontSize: '35dp',
-                            color: '#FFD700',
-                            textAlign: 'center'
-                        },
-                        {
-                            type: 'Text',
-                            text: '${payload.departureData.time}',
-                            fontSize: '60dp',
-                            color: '#00FF00',
-                            fontWeight: 'bold',
-                            textAlign: 'center',
-                            paddingTop: '20dp'
-                        }
-                    ]
+                    "type": "Sequence",
+                    "width": "100%",
+                    "height": "100%",
+                    "data": "${trainList.items}",
+                    "item": {
+                        "type": "Text",
+                        "text": "${data.line} to ${data.destination}  •  ${data.time}",
+                        "fontSize": "22dp",
+                        "color": "#FFD700",
+                        "paddingBottom": "15dp",
+                        "maxLines": 1
+                    }
                 }
             ]
         }
@@ -81,20 +73,19 @@ const GetDeparturesIntentHandler = {
             try {
                 address = await deviceAddressClient.getCountryAndPostalCode(deviceId);
             } catch (permError) {
-                console.log('Permission denied by simulator. Forcing fallback to SE1 8SW.');
-                address = { postalCode: 'SE1 8SW' };
+                address = { postalCode: 'SW1A 2JR' }; 
             }
             
             if (!address || !address.postalCode) {
-                address = { postalCode: 'SE1 8SW' }; 
+                address = { postalCode: 'SW1A 2JR' }; 
             }
 
             const safePostcode = encodeURIComponent(address.postalCode.trim());
             const geoRes = await axios.get('https://api.postcodes.io/postcodes/' + safePostcode);
             const { latitude, longitude } = geoRes.data.result;
 
-            const radius = 1600;
-            const stopTypes = 'NaptanPublicBusCoachTram,NaptanMetro,NaptanRailStation';
+            const radius = 1600; 
+            const stopTypes = 'NaptanPublicBusCoachTram,NaptanMetroStation,NaptanRailStation'; 
             
             const tflUrl = 'https://api.tfl.gov.uk/StopPoint?lat=' + latitude + '&lon=' + longitude + '&stopTypes=' + stopTypes + '&radius=' + radius;
                            
@@ -114,53 +105,66 @@ const GetDeparturesIntentHandler = {
             const depRes = await axios.get(arrivalsUrl);
             const arrivals = depRes.data;
 
+            let mappedArrivals = [];
+            let speakOutput = '';
+
             if (arrivals && arrivals.length > 0) {
                 arrivals.sort((a, b) => a.timeToStation - b.timeToStation);
-                const next = arrivals[0];
-                const minutes = Math.round(next.timeToStation / 60);
                 
-                let timePhrase = minutes === 0 ? 'is due now' : 'in ' + minutes + ' mins';
-                let speakPhrase = minutes === 0 ? 'is due now' : 'will arrive in ' + minutes + ' minutes';
-                
-                const speakOutput = 'At ' + closestStop.commonName + ', the next ' + (next.lineName || 'train') + ' towards ' + (next.destinationName || 'its destination') + ' ' + speakPhrase + '.';
-                
-                const supportedInterfaces = Alexa.getSupportedInterfaces(requestEnvelope);
-                if (supportedInterfaces && supportedInterfaces['Alexa.Presentation.APL']) {
-                    responseBuilder.addDirective({
-                        type: 'Alexa.Presentation.APL.RenderDocument',
-                        token: 'departureToken',
-                        document: departureBoardDocument,
-                        datasources: {
-                            payload: {
-                                departureData: {
-                                    stationName: closestStop.commonName,
-                                    lineName: next.lineName || 'Unknown',
-                                    destination: next.destinationName || 'Unknown',
-                                    time: timePhrase
-                                }
-                            }
-                        }
+                const limit = Math.min(arrivals.length, 5);
+                for (let i = 0; i < limit; i++) {
+                    const next = arrivals[i];
+                    const minutes = Math.round(next.timeToStation / 60);
+                    let timePhrase = minutes === 0 ? 'Due' : minutes + ' min';
+                    
+                    mappedArrivals.push({
+                        line: next.lineName || 'Unknown',
+                        destination: next.destinationName || 'Unknown',
+                        time: timePhrase
                     });
                 }
-                                    
-                return responseBuilder.speak(speakOutput).getResponse();
+                
+                const nextTrain = arrivals[0];
+                const nextMins = Math.round(nextTrain.timeToStation / 60);
+                let speakPhrase = nextMins === 0 ? 'is due now' : 'will arrive in ' + nextMins + ' minutes';
+                speakOutput = 'At ' + closestStop.commonName + ', the next ' + (nextTrain.lineName || 'train') + ' towards ' + (nextTrain.destinationName || 'its destination') + ' ' + speakPhrase + '.';
+                
             } else {
-                const noDataText = 'I found ' + closestStop.commonName + ' nearby, but there are no departures listed right now.';
-                return responseBuilder.speak(noDataText).getResponse();
+                mappedArrivals = [{ line: 'No departures', destination: 'listed', time: '--' }];
+                speakOutput = 'I found ' + closestStop.commonName + ' nearby, but there are no departures listed right now.';
             }
+
+            const supportedInterfaces = Alexa.getSupportedInterfaces(requestEnvelope);
+            if (supportedInterfaces && supportedInterfaces['Alexa.Presentation.APL']) {
+                responseBuilder.addDirective({
+                    type: 'Alexa.Presentation.APL.RenderDocument',
+                    token: 'departureToken',
+                    document: departureBoardDocument,
+                    datasources: {
+                        trainList: {
+                            type: 'list',
+                            listId: 'trains',
+                            items: mappedArrivals
+                        },
+                        headerData: {
+                            type: 'object',
+                            properties: {
+                                stationName: closestStop.commonName
+                            }
+                        }
+                    }
+                });
+            }
+                                
+            return responseBuilder.speak(speakOutput).getResponse();
 
         } catch (error) {
             console.error('Error details:', error);
-            
             let errMsg = error.message;
             if (error.response && error.response.status) {
-                const failUrl = error.config && error.config.url ? error.config.url : 'unknown URL';
-                errMsg = 'Status ' + error.response.status + ' on link ' + failUrl;
+                errMsg = 'Status ' + error.response.status;
             }
-            
-            return responseBuilder
-                .speak('I crashed. The exact error is: ' + errMsg)
-                .getResponse();
+            return responseBuilder.speak('I crashed. The exact error is: ' + errMsg).getResponse();
         }
     }
 };
