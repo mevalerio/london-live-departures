@@ -1,0 +1,72 @@
+{
+    "type": "APL",
+    "version": "2023.2",
+    "theme": "dark",
+    "mainTemplate": {
+        "parameters": [ "widgetData" ],
+        "item": {
+            "type": "Container",
+            "width": "100%",
+            "height": "100%",
+            "backgroundColor": "#111111",
+            "paddingLeft": "16dp",
+            "paddingRight": "16dp",
+            "paddingTop": "16dp",
+            "paddingBottom": "16dp",
+            "items": [
+                {
+                    "type": "Text",
+                    "text": "${widgetData.stationName}",
+                    "fontSize": "26dp",
+                    "color": "#FFFFFF",
+                    "fontWeight": "bold",
+                    "paddingBottom": "5dp",
+                    "maxLines": 1
+                },
+                {
+                    "type": "Sequence",
+                    "width": "100%",
+                    "height": "100%",
+                    "data": "${widgetData.arrivals}",
+                    "item": [
+                        {
+                            "when": "${data.isHeader}",
+                            "type": "Text",
+                            "text": "${data.title}",
+                            "fontSize": "18dp",
+                            "color": "#AAAAAA",
+                            "fontWeight": "bold",
+                            "paddingTop": "12dp",
+                            "paddingBottom": "4dp"
+                        },
+                        {
+                            "type": "Container",
+                            "direction": "row",
+                            "width": "100%",
+                            "paddingTop": "4dp",
+                            "paddingBottom": "4dp",
+                            "justifyContent": "spaceBetween",
+                            "items": [
+                                {
+                                    "type": "Text",
+                                    "text": "${data.line} to ${data.destination}",
+                                    "fontSize": "18dp",
+                                    "color": "#FFD700",
+                                    "shrink": 1,
+                                    "maxLines": 1
+                                },
+                                {
+                                    "type": "Text",
+                                    "text": "${data.time}",
+                                    "fontSize": "20dp",
+                                    "color": "#00FF00",
+                                    "fontWeight": "bold"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
