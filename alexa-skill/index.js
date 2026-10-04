@@ -59,8 +59,9 @@ const LaunchRequestHandler = {
 
 const GetDeparturesIntentHandler = {
     canHandle(handlerInput) {
-        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'GetDeparturesIntent';
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest'
+            || (Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'GetDeparturesIntent');
     },
     async handle(handlerInput) {
         const { requestEnvelope, serviceClientFactory, responseBuilder } = handlerInput;
@@ -106,12 +107,13 @@ const GetDeparturesIntentHandler = {
             const limitStops = Math.min(stopPoints.length, 3);
             let allArrivals = [];
             
+            const fetchPromises = [];
             for (let i = 0; i < limitStops; i++) {
                 const stop = stopPoints[i];
                 const stopId = stop.naptanId || stop.id;
-                try {
-                    const arrivalsUrl = 'https://api.tfl.gov.uk/StopPoint/' + stopId + '/Arrivals';
-                    const depRes = await axios.get(arrivalsUrl);
+                const arrivalsUrl = 'https://api.tfl.gov.uk/StopPoint/' + stopId + '/Arrivals';
+                
+                const p = axios.get(arrivalsUrl).then(depRes => {
                     if (depRes.data && depRes.data.length > 0) {
                         depRes.data.forEach(arr => {
                             let displayName = stop.commonName.replace(' Underground Station', '').replace(' Station', '');
@@ -120,12 +122,21 @@ const GetDeparturesIntentHandler = {
                             }
                             arr.stationName = displayName;
                         });
-                        allArrivals = allArrivals.concat(depRes.data);
+                        return depRes.data;
                     }
-                } catch (e) {
+                    return [];
+                }).catch(e => {
                     console.log("Failed to fetch arrivals for stop", stopId);
-                }
+                    return [];
+                });
+                
+                fetchPromises.push(p);
             }
+            
+            const results = await Promise.all(fetchPromises);
+            results.forEach(res => {
+                allArrivals = allArrivals.concat(res);
+            });
 
             let mappedArrivals = [];
             let speakOutput = '';
@@ -238,7 +249,7 @@ const FallbackIntentHandler = {
 };
 
 exports.handler = Alexa.SkillBuilders.custom()
-    .addRequestHandlers(LaunchRequestHandler, GetDeparturesIntentHandler, WidgetEventHandler, SessionEndedRequestHandler, FallbackIntentHandler)
+    .addRequestHandlers(GetDeparturesIntentHandler, LaunchRequestHandler, WidgetEventHandler, SessionEndedRequestHandler, FallbackIntentHandler)
     .addErrorHandlers(ErrorHandler)
     .withApiClient(new Alexa.DefaultApiClient()) 
     .lambda();
