@@ -71,20 +71,25 @@ const GetDeparturesIntentHandler = {
             
             let address;
             try {
-                address = await deviceAddressClient.getCountryAndPostalCode(deviceId);
+                address = await deviceAddressClient.getFullAddress(deviceId);
             } catch (permError) {
-                address = { postalCode: 'SW1A 2JR' }; 
+                console.error("Permission error details:", permError);
+                return responseBuilder
+                    .speak("I am hitting the fallback because Amazon blocked the location. The exact error is: " + (permError.message || permError.name) + ". Please make sure Device Address is turned on in the Alexa App settings.")
+                    .getResponse();
             }
             
             if (!address || !address.postalCode) {
-                address = { postalCode: 'SW1A 2JR' }; 
+                return responseBuilder
+                    .speak("I am hitting the fallback because your Echo Show device does not have a physical address set in its local device settings.")
+                    .getResponse();
             }
 
             const safePostcode = encodeURIComponent(address.postalCode.trim());
             const geoRes = await axios.get('https://api.postcodes.io/postcodes/' + safePostcode);
             const { latitude, longitude } = geoRes.data.result;
 
-            const radius = 1600; 
+            const radius = 2000; 
             const stopTypes = 'NaptanPublicBusCoachTram,NaptanMetroStation,NaptanRailStation'; 
             
             const tflUrl = 'https://api.tfl.gov.uk/StopPoint?lat=' + latitude + '&lon=' + longitude + '&stopTypes=' + stopTypes + '&radius=' + radius;
@@ -98,40 +103,57 @@ const GetDeparturesIntentHandler = {
                     .getResponse();
             }
 
-            const closestStop = stopPoints[0];
-            const stopId = closestStop.naptanId || closestStop.id;
+            const limitStops = Math.min(stopPoints.length, 3);
+            let allArrivals = [];
             
-            const arrivalsUrl = 'https://api.tfl.gov.uk/StopPoint/' + stopId + '/Arrivals';
-            const depRes = await axios.get(arrivalsUrl);
-            const arrivals = depRes.data;
+            for (let i = 0; i < limitStops; i++) {
+                const stop = stopPoints[i];
+                const stopId = stop.naptanId || stop.id;
+                try {
+                    const arrivalsUrl = 'https://api.tfl.gov.uk/StopPoint/' + stopId + '/Arrivals';
+                    const depRes = await axios.get(arrivalsUrl);
+                    if (depRes.data && depRes.data.length > 0) {
+                        depRes.data.forEach(arr => {
+                            let displayName = stop.commonName.replace(' Underground Station', '').replace(' Station', '');
+                            if (stop.indicator && stop.indicator !== 'null') {
+                                displayName = stop.indicator.includes('Stop') ? stop.indicator : 'Stop ' + stop.indicator;
+                            }
+                            arr.stationName = displayName;
+                        });
+                        allArrivals = allArrivals.concat(depRes.data);
+                    }
+                } catch (e) {
+                    console.log("Failed to fetch arrivals for stop", stopId);
+                }
+            }
 
             let mappedArrivals = [];
             let speakOutput = '';
 
-            if (arrivals && arrivals.length > 0) {
-                arrivals.sort((a, b) => a.timeToStation - b.timeToStation);
+            if (allArrivals.length > 0) {
+                allArrivals.sort((a, b) => a.timeToStation - b.timeToStation);
                 
-                const limit = Math.min(arrivals.length, 5);
+                const limit = Math.min(allArrivals.length, 8);
                 for (let i = 0; i < limit; i++) {
-                    const next = arrivals[i];
+                    const next = allArrivals[i];
                     const minutes = Math.round(next.timeToStation / 60);
                     let timePhrase = minutes === 0 ? 'Due' : minutes + ' min';
                     
                     mappedArrivals.push({
-                        line: next.lineName || 'Unknown',
+                        line: (next.lineName || 'Unknown') + ' (' + (next.stationName || 'Local') + ')',
                         destination: next.destinationName || 'Unknown',
                         time: timePhrase
                     });
                 }
                 
-                const nextTrain = arrivals[0];
+                const nextTrain = allArrivals[0];
                 const nextMins = Math.round(nextTrain.timeToStation / 60);
                 let speakPhrase = nextMins === 0 ? 'is due now' : 'will arrive in ' + nextMins + ' minutes';
-                speakOutput = 'At ' + closestStop.commonName + ', the next ' + (nextTrain.lineName || 'train') + ' towards ' + (nextTrain.destinationName || 'its destination') + ' ' + speakPhrase + '.';
+                speakOutput = 'At ' + nextTrain.stationName + ', the next ' + (nextTrain.lineName || 'service') + ' towards ' + (nextTrain.destinationName || 'its destination') + ' ' + speakPhrase + '.';
                 
             } else {
                 mappedArrivals = [{ line: 'No departures', destination: 'listed', time: '--' }];
-                speakOutput = 'I found ' + closestStop.commonName + ' nearby, but there are no departures listed right now.';
+                speakOutput = 'I found local stops, but there are no departures listed right now.';
             }
 
             const supportedInterfaces = Alexa.getSupportedInterfaces(requestEnvelope);
@@ -149,13 +171,12 @@ const GetDeparturesIntentHandler = {
                         headerData: {
                             type: 'object',
                             properties: {
-                                stationName: closestStop.commonName
+                                stationName: "Local Departures"
                             }
                         }
                     }
                 });
             }
-                                
             return responseBuilder.speak(speakOutput).getResponse();
 
         } catch (error) {
@@ -169,6 +190,22 @@ const GetDeparturesIntentHandler = {
     }
 };
 
+const WidgetEventHandler = {
+    canHandle(handlerInput) {
+        const type = Alexa.getRequestType(handlerInput.requestEnvelope);
+        return type === 'Alexa.DataStore.PackageManager.UsagesInstalled' ||
+               type === 'Alexa.DataStore.PackageManager.UpdateRequest' ||
+               type === 'Alexa.DataStore.PackageManager.UsagesRemoved';
+    },
+    handle(handlerInput) {
+        console.log("🔥 WIDGET BACKGROUND PING RECEIVED!");
+        console.log(JSON.stringify(handlerInput.requestEnvelope.request, null, 2));
+        
+        // Return a successful blank response so Alexa knows we are alive
+        return handlerInput.responseBuilder.getResponse();
+    }
+};
+
 const ErrorHandler = {
     canHandle() { return true; },
     handle(handlerInput, error) {
@@ -177,8 +214,31 @@ const ErrorHandler = {
     }
 };
 
+
+const SessionEndedRequestHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'SessionEndedRequest';
+    },
+    handle(handlerInput) {
+        console.log(`Session ended with reason: ${handlerInput.requestEnvelope.request.reason}`);
+        return handlerInput.responseBuilder.getResponse(); // Must be empty
+    }
+};
+
+const FallbackIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && (Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.FallbackIntent' ||
+                Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.CancelIntent' ||
+                Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.StopIntent');
+    },
+    handle(handlerInput) {
+        return handlerInput.responseBuilder.speak('Goodbye!').getResponse();
+    }
+};
+
 exports.handler = Alexa.SkillBuilders.custom()
-    .addRequestHandlers(LaunchRequestHandler, GetDeparturesIntentHandler)
+    .addRequestHandlers(LaunchRequestHandler, GetDeparturesIntentHandler, WidgetEventHandler, SessionEndedRequestHandler, FallbackIntentHandler)
     .addErrorHandlers(ErrorHandler)
     .withApiClient(new Alexa.DefaultApiClient()) 
     .lambda();
