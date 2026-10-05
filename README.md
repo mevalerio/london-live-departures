@@ -69,5 +69,19 @@ The widget allows you to configure its behavior directly from its UI:
 MIT License
 
 
-## 🎙️ Alexa Skill & Echo Show Widget (In Progress)
-We are currently developing an Alexa Skill version of this project! The goal is to bring the same frameless, auto-locating departure board directly to Amazon Echo Show smart displays as a persistent widget. Check out the `alexa-skill/` directory for the backend Node.js code that fetches the TfL data and handles voice intents.
+## 🎙️ Alexa Skill & Echo Show Widget
+
+A fully functional Alexa Skill and Visual APL Widget for Amazon Echo Show devices has been added to this repository! 
+
+The skill is built specifically for Echo Show devices and provides a seamless "one-shot" commuting experience.
+
+### 🌟 Alexa Features
+- **One-Shot Voice Command:** Simply say `"Alexa, open London Departures"` as you walk out the door. The skill instantly fetches the data, speaks the absolute closest train/bus, displays the live visual board, and closes itself. No conversation required!
+- **GPS Device Location:** Integrates directly with the Alexa Device Address API to silently grab your Echo Show's physical GPS location.
+- **Top 3 Smart Grouping:** Scans a 2000-meter radius, finds the top 3 closest transport hubs (mixing Tube, Bus, and Rail), and elegantly groups their live arrivals under distinct headers (e.g. `Westminster (Platform 1)` or `Parliament Square (Stop C)`).
+- **Echo Show Widget:** Includes a custom APL document designed to be pinned directly to the Echo Show 15's Home Screen Widget Gallery.
+
+### 📁 Structure
+All Alexa-related code is located in the `alexa-skill/` folder:
+- `index.js`: The core AWS Lambda backend that handles voice intents, fetches TfL APIs concurrently (via `Promise.all` to prevent timeouts), and structures the visual data.
+- `skill-package/`: Contains the official Alexa Skill Manifest (`skill.json`), interaction models, and the APL layouts for the visual responses and the home screen widget.
