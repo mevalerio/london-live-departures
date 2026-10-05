@@ -227,8 +227,11 @@ const GetDeparturesIntentHandler = {
                     document: departureBoardDocument,
                     datasources: {
                         widgetData: {
-                            stationName: "Local Departures",
-                            arrivals: mappedArrivals
+                            type: 'object',
+                            properties: {
+                                stationName: "Local Departures",
+                                arrivals: mappedArrivals
+                            }
                         }
                     }
                 });
