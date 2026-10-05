@@ -1,0 +1,53 @@
+{
+  "manifest": {
+    "id": "DepartureWidget",
+    "version": "1.0.0",
+    "presentationDefinitions": [
+      {
+        "url": "presentations/default.tpl"
+      }
+    ],
+    "appliesTo": "${viewport.mode == 'HUB' && location == 'FAVORITE'}"
+  },
+  "packageVersion": "1.0",
+  "packageType": "APL_PACKAGE",
+  "publishingInformation": {
+    "schemaVersion": "1.0",
+    "locales": {
+      "en-US": [
+        {
+          "targetViewport": "WIDGET_M",
+          "metadata": {
+            "name": "London Departures",
+            "description": "Live London Transport Departures",
+            "keywords": [
+              "keyword1",
+              "keyword2"
+            ],
+            "iconUri": "https://d3ozx4qyxcxwzd.cloudfront.net/default_icon.png",
+            "previews": [
+              "https://d3ozx4qyxcxwzd.cloudfront.net/default_preview.png"
+            ]
+          }
+        }
+      ],
+      "en-GB": [
+        {
+          "targetViewport": "WIDGET_M",
+          "metadata": {
+            "name": "London Departures",
+            "description": "Live London Transport Departures",
+            "keywords": [
+              "keyword1",
+              "keyword2"
+            ],
+            "iconUri": "https://d3ozx4qyxcxwzd.cloudfront.net/default_icon.png",
+            "previews": [
+              "https://d3ozx4qyxcxwzd.cloudfront.net/default_preview.png"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
