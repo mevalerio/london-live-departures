@@ -6,7 +6,7 @@ const departureBoardDocument = {
     "version": "2023.2",
     "theme": "dark",
     "mainTemplate": {
-        "parameters": [ "headerData", "trainList" ],
+        "parameters": [ "payload" ],
         "item": {
             "type": "Container",
             "width": "100%",
@@ -19,7 +19,7 @@ const departureBoardDocument = {
             "items": [
                 {
                     "type": "Text",
-                    "text": "${headerData.stationName}",
+                    "text": "${payload.widgetData.stationName}",
                     "fontSize": "26dp",
                     "color": "#FFFFFF",
                     "fontWeight": "bold",
@@ -30,7 +30,7 @@ const departureBoardDocument = {
                     "type": "Sequence",
                     "width": "100%",
                     "height": "100%",
-                    "data": "${trainList}",
+                    "data": "${payload.widgetData.arrivals}",
                     "item": [
                         {
                             "when": "${data.isHeader}",
@@ -226,16 +226,14 @@ const GetDeparturesIntentHandler = {
                     token: 'departureToken',
                     document: departureBoardDocument,
                     datasources: {
-                        headerData: {
+                        payload: {
                             type: 'object',
                             properties: {
-                                stationName: "Local Departures"
+                                widgetData: {
+                                    stationName: "Local Departures",
+                                    arrivals: mappedArrivals
+                                }
                             }
-                        },
-                        trainList: {
-                            type: 'list',
-                            listId: 'trains',
-                            items: mappedArrivals
                         }
                     }
                 });
