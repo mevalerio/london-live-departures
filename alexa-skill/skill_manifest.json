@@ -246,9 +246,6 @@
             "requestedExtensions": [
               {
                 "uri": "alexaext:datastore:10"
-              },
-              {
-                "uri": "alexaext:widget:10"
               }
             ],
             "type": "ALEXA_EXTENSION"
