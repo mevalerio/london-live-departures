@@ -19,7 +19,7 @@ const departureBoardDocument = {
             "items": [
                 {
                     "type": "Text",
-                    "text": "${headerData.properties.stationName}",
+                    "text": "${headerData.stationName}",
                     "fontSize": "26dp",
                     "color": "#FFFFFF",
                     "fontWeight": "bold",
@@ -227,9 +227,10 @@ const GetDeparturesIntentHandler = {
                     document: departureBoardDocument,
                     datasources: {
                         trainList: {
-                            type: 'list',
-                            listId: 'trains',
-                            items: mappedArrivals
+                            type: 'object',
+                            properties: {
+                                items: mappedArrivals
+                            }
                         },
                         headerData: {
                             type: 'object',
