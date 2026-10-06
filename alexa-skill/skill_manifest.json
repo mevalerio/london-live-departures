@@ -311,7 +311,7 @@
         "isShoppingActionsEnabled": false,
         "isAmazonAssociatesOnAlexaEnabled": false
       },
-      "usesPersonalInfo": false
+      "usesPersonalInfo": true
     }
   }
 }
