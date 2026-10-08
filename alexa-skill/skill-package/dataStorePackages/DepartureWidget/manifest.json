@@ -4,7 +4,7 @@
     "version": "1.0.0",
     "presentationDefinitions": [
       {
-        "url": "documents/document.json"
+        "url": "presentations/default.tpl"
       }
     ],
     "appliesTo": "${viewport.mode == 'HUB' && location == 'FAVORITE'}"
