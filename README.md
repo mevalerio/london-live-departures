@@ -79,7 +79,7 @@ The skill is built specifically for Echo Show devices and provides a seamless "o
 - **One-Shot Voice Command:** Simply say `"Alexa, open London Departures"` as you walk out the door. The skill instantly fetches the data, speaks the absolute closest train/bus, displays the live visual board, and closes itself. No conversation required!
 - **GPS Device Location:** Integrates directly with the Alexa Device Address API to silently grab your Echo Show's physical GPS location.
 - **Top 3 Smart Grouping:** Scans a 2000-meter radius, finds the top 3 closest transport hubs (mixing Tube, Bus, and Rail), and elegantly groups their live arrivals under distinct headers (e.g. `Westminster (Platform 1)` or `Parliament Square (Stop C)`).
-- **Echo Show Widget:** Includes a custom APL document designed to be pinned directly to the Echo Show 15's Home Screen Widget Gallery.
+- **Echo Show Widget:** Fully supports the Amazon Echo Show Widget Gallery! Pin it directly to your home screen. It uses the `Alexa.DataStore.PackageManager` API to silently push live departure updates to the background widget without you needing to open the app.
 
 ### 📁 Structure
 All Alexa-related code is located in the `alexa-skill/` folder:
