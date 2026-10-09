@@ -381,8 +381,7 @@ const WidgetEventHandler = {
             const axios = require('axios');
             
             const commandPayload = {
-                target: request.target || undefined,
-                commands: [
+                                commands: [
                     {
                         type: "PUT_OBJECT",
                         namespace: "LondonDepartures",
