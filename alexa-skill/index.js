@@ -19,7 +19,7 @@ const departureBoardDocument = {
             "items": [
                 {
                     "type": "Text",
-                    "text": "${headerData.stationName}",
+                    "text": "${headerData.properties.stationName}",
                     "fontSize": "26dp",
                     "color": "#FFFFFF",
                     "fontWeight": "bold",
@@ -227,10 +227,9 @@ const GetDeparturesIntentHandler = {
                     document: departureBoardDocument,
                     datasources: {
                         trainList: {
-                            type: 'object',
-                            properties: {
-                                items: mappedArrivals
-                            }
+                            type: 'list',
+                            listId: 'trains',
+                            items: mappedArrivals
                         },
                         headerData: {
                             type: 'object',
@@ -381,6 +380,7 @@ const WidgetEventHandler = {
             const axios = require('axios');
             
             const commandPayload = {
+                target: request.target || undefined,
                 commands: [
                     {
                         type: "PUT_OBJECT",
