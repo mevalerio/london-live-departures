@@ -349,12 +349,13 @@ const WidgetEventHandler = {
         try {
             // Get location
             const { requestEnvelope, serviceClientFactory } = handlerInput;
-            const deviceId = requestEnvelope.context.System.device.deviceId;
+            const device = requestEnvelope.context.System.device;
+            const deviceId = device ? device.deviceId : null;
             
             let lat = 51.5014;
             let lon = -0.1250;
             
-            if (serviceClientFactory) {
+            if (deviceId && serviceClientFactory) {
                 try {
                     const deviceAddressServiceClient = serviceClientFactory.getDeviceAddressServiceClient();
                     const address = await deviceAddressServiceClient.getFullAddress(deviceId);
