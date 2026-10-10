@@ -241,7 +241,48 @@ const GetDeparturesIntentHandler = {
                 });
             }
                                 
+            
+            // Push to DataStore to update the Widget synchronously during the voice command
+            try {
+                const token = Alexa.getApiAccessToken(requestEnvelope);
+                const endpoint = Alexa.getApiEndpoint(requestEnvelope);
+                if (token && endpoint) {
+                    const dsUrl = endpoint + '/v1/datastore/commands';
+                    const commandPayload = {
+                        commands: [
+                            {
+                                type: "PUT_OBJECT",
+                                namespace: "LondonDepartures",
+                                key: "liveBoard",
+                                content: {
+                                    type: "object",
+                                    properties: {
+                                        stationName: stopPoints[0] ? stopPoints[0].commonName : "Local Departures",
+                                        arrivals: mappedArrivals.length > 0 ? mappedArrivals : [{ isHeader: false, line: "No departures", destination: "listed", time: "--" }]
+                                    }
+                                }
+                            }
+                        ]
+                    };
+                    await axios.post(dsUrl, commandPayload, {
+                        headers: {
+                            'Authorization': 'Bearer ' + token,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    console.log("Intent DataStore push success!");
+                }
+            } catch (err) {
+                console.error("Intent DataStore Push Failed", err.message);
+                let debugErr = err.message;
+                if (err.response && err.response.data) {
+                    debugErr = JSON.stringify(err.response.data).replace(/["']/g, '');
+                }
+                speakOutput += " By the way, your widget push failed. Amazon says: " + debugErr;
+            }
+            
             return responseBuilder.speak(speakOutput).getResponse();
+
 
         } catch (error) {
             console.error('Error details:', error);
