@@ -1,39 +1,142 @@
-# London Live Departures - Alexa Skill
+# London Live Departures - Alexa Skill & Echo Show Widget
 
-This directory contains the backend Lambda code (`index.js`), APL visual layouts, and widget code for the London Live Departures Alexa Skill.
+This directory contains the backend Lambda code (`index.js`), APL visual layouts, DataStore packages, and widget definitions for the London Live Departures Alexa Skill.
 
-## Full Setup Instructions
+---
 
-To deploy this skill to your own Echo Show or Echo devices, follow these exact steps in the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask):
+## 🌟 Overview & Key Architecture
 
-### 1. Skill Creation & Language
-- Create a new skill and select **Alexa-Hosted (Node.js)**.
-- Ensure your **Primary Locale** is set to **English (UK)**. *(Note: When testing in the simulator, the language dropdown MUST match English (UK), otherwise Amazon's generic traffic app might hijack your commands).*
-- Turn off "Sync Locales" in Language Settings to prevent the simulator from freezing during builds.
+The skill provides two synchronized commuting experiences for Amazon Echo Show devices:
+1. **One-Shot Voice & Display Response:** Say *"Alexa, open London Departures"* to immediately hear the next upcoming departure and view a dark-mode APL departure board on screen.
+2. **Ambient Echo Show Widget:** A medium home screen widget (`WIDGET_M`) that stays pinned to your Echo Show dashboard, receiving live countdowns directly via Amazon's **DataStore REST API** without needing to open the full skill.
 
-### 2. Interfaces (Visuals & Widgets)
-- In the **Build** tab, click **Interfaces** on the left menu.
-- Turn ON **Alexa Presentation Language** (APL).
-- Turn ON **Data Store Packages**.
-- Turn ON **Data Store**.
-- Click **Save Interfaces** and then **Build Model**.
+```
+┌────────────────────────┐         ┌─────────────────────────┐
+│     Physical Device    │         │       Alexa Backend     │
+│  (Echo Show 8/10/15)   │         │     (Node.js Lambda)    │
+└───────────┬────────────┘         └────────────┬────────────┘
+            │                                   │
+            │ 1. "Alexa, open London Departures"│
+            ├──────────────────────────────────►│
+            │                                   │ 2. Read GPS/Postcode via Device Address API
+            │                                   │ 3. Fetch TfL Arrivals concurrently
+            │ 4. Voice SSML + APL Board Screen  │
+            │◄──────────────────────────────────┤
+            │                                   │ 5. LWA OAuth 2.0 Auth (scope: alexa::datastore)
+            │                                   │ 6. POST /v1/datastore/commands (target: USER)
+            │ 7. Local DataStore Dispatched     │
+            │◄──────────────────────────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│  London Departures     │
+│  Home Screen Widget    │
+│  [Station Name]        │
+│  68 to West Norwood Due│
+│  322 to Clapham   2 min│
+│  [REFRESH] Button      │
+└────────────────────────┘
+```
 
-### 3. Interaction Model (Voice Commands)
-- Go to **Interaction Model** -> **Intents**.
-- Create a new custom intent named `GetDeparturesIntent`.
-- Add the following Sample Utterances (you can add more later):
-  - `check my stations`
-  - `what are my next trains`
-  - `give me my departures`
-- Click **Save Model** and **Build Skill**. Wait for the "Full Build Successful" notification.
+---
 
-### 4. Deploying the Code
-- Go to the **Code** tab.
-- Copy the entire contents of the `index.js` file from this repository.
-- Paste it into the console's `index.js` editor, completely replacing the default code.
-- Click **Save** and **Deploy**.
+## 🧩 Echo Show Widget & DataStore Architecture
 
-## Features Included
-- **Visual Departure Board**: A fully functioning dark-mode APL screen designed for Echo Show. It renders the upcoming 5 trains or buses in a beautifully formatted scrolling list, matching the Windows desktop widget.
-- **Simulator Bypass**: The web simulator does not supply a real GPS location, so the code contains a fallback to `SW1A 2JR` (Westminster Tube Station) to guarantee live test data. When used on a physical Echo device with Location Permissions granted, it automatically reads the device's real-world postcode!
-- **TfL API Integration**: Uses the Transport for London unified API to grab the exact coordinates, find the closest `NaptanPublicBusCoachTram`, `NaptanMetroStation`, or `NaptanRailStation`, and query the `/Arrivals` endpoint.
+### 1. DataStore Extension & APL Document Binding
+The widget template is defined in [`skill-package/dataStorePackages/DepartureWidget/documents/document.json`](file:///home/valerio/london-live-departures/alexa-skill/skill-package/dataStorePackages/DepartureWidget/documents/document.json):
+- **Extension URI:** `alexaext:datastore:10`
+- **Data Binding:**
+  ```json
+  "settings": {
+    "DataStore": {
+      "dataBindings": [
+        {
+          "namespace": "LondonDepartures",
+          "key": "liveBoard",
+          "dataBindingName": "liveBoard",
+          "dataType": "object"
+        }
+      ]
+    }
+  }
+  ```
+- **Parameter Scoping (No Shadowing):** The template parameter is named `defaultPayload` (from `datasources/default.json`), completely separate from `liveBoard`. This prevents APL lexical parameter shadowing and ensures real-time DataStore pushes update the screen immediately.
+- **Fallback Expressions:**
+  - Station: `${liveBoard.stationName ? liveBoard.stationName : defaultPayload.stationName}`
+  - Arrivals: `${liveBoard.arrivals ? liveBoard.arrivals : defaultPayload.arrivals}`
+
+### 2. DataStore REST API Push
+- When the skill is opened via voice, or when the widget's blue **REFRESH** button is tapped, the backend dispatches updates via:
+  ```text
+  POST https://api.eu.amazonalexa.com/v1/datastore/commands
+  ```
+- **Authentication:** Requires a Login with Amazon (LWA) OAuth 2.0 Client Credentials token (`grant_type=client_credentials`, `scope=alexa::datastore`).
+- **Targeting:** Uses `{ "type": "USER", "id": userId }` to broadcast updates across all widget-capable Echo Show devices registered to the Amazon account simultaneously.
+- **Payload Shape:** Includes both top-level and `.properties` objects for 100% compatibility with all APL data binding patterns:
+  ```json
+  {
+    "type": "PUT_OBJECT",
+    "namespace": "LondonDepartures",
+    "key": "liveBoard",
+    "content": {
+      "stationName": "Lancaster Avenue",
+      "arrivals": [ ... ],
+      "properties": {
+        "stationName": "Lancaster Avenue",
+        "arrivals": [ ... ]
+      }
+    }
+  }
+  ```
+
+---
+
+## 🚀 Deployment Instructions
+
+### Method A: Alexa-Hosted Skills Git Deploy (Recommended)
+Alexa-Hosted Skills are backed by an AWS CodeCommit repository:
+
+1. **Clone the Alexa-Hosted Repo:**
+   ```bash
+   git clone https://git-codecommit.us-east-1.amazonaws.com/v1/repos/<SKILL_ID> LondonDepartures
+   ```
+2. **Synchronize Code & Skill Package:**
+   Copy `alexa-skill/index.js` to `lambda/index.js` and `alexa-skill/skill-package/` to `skill-package/`.
+3. **Commit & Deploy:**
+   ```bash
+   git add .
+   git commit -m "Deploy latest departures skill & widget"
+   git push origin master
+   ```
+   CodeCommit triggers AWS CodeBuild, builds the interaction models, and deploys the Lambda function to the `development` stage.
+
+### Method B: Alexa Developer Console
+1. **Enable Interfaces:**
+   - In the Developer Console, turn ON **Alexa Presentation Language (APL)**, **Data Store Packages**, and **Data Store**.
+2. **Update Code:**
+   - In the **Code** tab, paste `alexa-skill/index.js` and ensure dependencies (`ask-sdk-core`, `axios`) are in `package.json`.
+   - Click **Save** and **Deploy**.
+3. **Add Widget:**
+   - Upload the `DepartureWidget` package from `skill-package/dataStorePackages/DepartureWidget/` under Data Store Packages.
+
+---
+
+## 🧪 Testing
+
+### 1. Echo Show Widget Test
+- **Home Screen:** The widget displays live departures for your nearest stop.
+- **Refresh Button:** Tap the blue **`REFRESH`** button in the top-right corner to fetch fresh arrivals from TfL.
+
+### 2. Voice Test
+- Say: *"Alexa, open London Departures"*
+- Alexa announces the next departure and displays the full dark-mode departure board.
+
+### 3. CLI Simulation
+```bash
+ask smapi simulate-skill \
+  -s amzn1.ask.skill.19cd4449-6c06-453f-b6a8-c91b2cd3823c \
+  -g development \
+  --input-content "open london departures" \
+  --device-locale en-GB \
+  --session-mode FORCE_NEW_SESSION
+```

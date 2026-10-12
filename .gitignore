@@ -5,3 +5,7 @@ out/
 .env
 .DS_Store
 *.log
+.vscode/
+credentials.json
+*credentials.json
+alexa-skill/credentials.json

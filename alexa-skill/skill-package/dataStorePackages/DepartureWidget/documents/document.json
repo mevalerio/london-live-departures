@@ -4,7 +4,7 @@
   "theme": "dark",
   "mainTemplate": {
     "parameters": [
-      "widgetData"
+      "defaultPayload"
     ],
     "item": {
       "type": "Container",
@@ -17,19 +17,46 @@
       "paddingBottom": "16dp",
       "items": [
         {
-          "type": "Text",
-          "text": "${widgetData.properties.stationName}",
-          "fontSize": "26dp",
-          "color": "#FFFFFF",
-          "fontWeight": "bold",
+          "type": "Container",
+          "direction": "row",
+          "width": "100%",
+          "justifyContent": "spaceBetween",
+          "alignItems": "center",
           "paddingBottom": "5dp",
-          "maxLines": 1
+          "items": [
+            {
+              "type": "Text",
+              "text": "${liveBoard.stationName ? liveBoard.stationName : (liveBoard.properties.stationName ? liveBoard.properties.stationName : (defaultPayload.stationName ? defaultPayload.stationName : (defaultPayload.defaultData.stationName ? defaultPayload.defaultData.stationName : defaultPayload.widgetData.properties.stationName)))}",
+              "fontSize": "26dp",
+              "color": "#FFFFFF",
+              "fontWeight": "bold",
+              "maxLines": 1,
+              "shrink": 1
+            },
+            {
+              "type": "TouchWrapper",
+              "onPress": {
+                "type": "SendEvent",
+                "interactionMode": "INLINE",
+                "arguments": [
+                  "RefreshWidget"
+                ]
+              },
+              "item": {
+                "type": "Text",
+                "text": "REFRESH",
+                "fontSize": "16dp",
+                "color": "#00AAFF",
+                "fontWeight": "bold"
+              }
+            }
+          ]
         },
         {
           "type": "Sequence",
           "width": "100%",
           "height": "100%",
-          "data": "${widgetData.properties.arrivals}",
+          "data": "${liveBoard.arrivals ? liveBoard.arrivals : (liveBoard.properties.arrivals ? liveBoard.properties.arrivals : (defaultPayload.arrivals ? defaultPayload.arrivals : (defaultPayload.defaultData.arrivals ? defaultPayload.defaultData.arrivals : defaultPayload.widgetData.properties.arrivals)))}",
           "item": [
             {
               "when": "${data.isHeader}",
@@ -83,16 +110,8 @@
         {
           "namespace": "LondonDepartures",
           "key": "liveBoard",
-          "dataBindingName": "widgetData"
-        }
-      ]
-    },
-    "dataStore": {
-      "dataBindings": [
-        {
-          "namespace": "LondonDepartures",
-          "key": "liveBoard",
-          "dataBindingName": "widgetData"
+          "dataBindingName": "liveBoard",
+          "dataType": "object"
         }
       ]
     }

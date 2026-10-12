@@ -1,0 +1,48 @@
+{
+  "stationName": "London Departures",
+  "arrivals": [
+    {
+      "isHeader": true,
+      "title": "Please open the skill"
+    },
+    {
+      "isHeader": false,
+      "line": "Say 'Alexa, open London Departures'",
+      "destination": "sync",
+      "time": ""
+    }
+  ],
+  "defaultData": {
+    "stationName": "London Departures",
+    "arrivals": [
+      {
+        "isHeader": true,
+        "title": "Please open the skill"
+      },
+      {
+        "isHeader": false,
+        "line": "Say 'Alexa, open London Departures'",
+        "destination": "sync",
+        "time": ""
+      }
+    ]
+  },
+  "widgetData": {
+    "type": "object",
+    "properties": {
+      "stationName": "London Departures",
+      "arrivals": [
+        {
+          "isHeader": true,
+          "title": "Please open the skill"
+        },
+        {
+          "isHeader": false,
+          "line": "Say 'Alexa, open London Departures'",
+          "destination": "sync",
+          "time": ""
+        }
+      ]
+    }
+  }
+}
