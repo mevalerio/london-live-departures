@@ -119,6 +119,7 @@ async function resolveCoordinates(handlerInput) {
     let locationSource = 'none';
     let permissionDenied = false;
     let noAddressSet = false;
+    let invalidPostcode = null;
 
     if (deviceId && serviceClientFactory) {
         let address = null;
@@ -132,39 +133,72 @@ async function resolveCoordinates(handlerInput) {
                 if (errFull.statusCode === 403 || (errFull.name === 'ServiceError' && errFull.statusCode === 403)) {
                     permissionDenied = true;
                 }
-                try {
-                    address = await deviceAddressClient.getCountryAndPostalCode(deviceId);
-                    console.log("DeviceAddressClient getCountryAndPostalCode succeeded:", JSON.stringify(address));
-                } catch (errCountry) {
-                    console.log("getCountryAndPostalCode error:", errCountry.statusCode || errCountry.message);
-                    if (errCountry.statusCode === 403 || (errCountry.name === 'ServiceError' && errCountry.statusCode === 403)) {
-                        permissionDenied = true;
+                if (!permissionDenied) {
+                    try {
+                        address = await deviceAddressClient.getCountryAndPostalCode(deviceId);
+                        console.log("DeviceAddressClient getCountryAndPostalCode succeeded:", JSON.stringify(address));
+                    } catch (errCountry) {
+                        console.log("getCountryAndPostalCode error:", errCountry.statusCode || errCountry.message);
+                        if (errCountry.statusCode === 403 || (errCountry.name === 'ServiceError' && errCountry.statusCode === 403)) {
+                            permissionDenied = true;
+                        }
                     }
                 }
             }
 
-            if (address) {
-                const postcode = address.postalCode ? address.postalCode.trim().toUpperCase() : null;
-                if (postcode) {
-                    permissionDenied = false;
-                    try {
-                        const geoUrl = 'https://api.postcodes.io/postcodes/' + encodeURIComponent(postcode);
-                        const geoRes = await axios.get(geoUrl, { timeout: 4000 });
-                        if (geoRes.data && geoRes.data.result) {
-                            lat = geoRes.data.result.latitude;
-                            lon = geoRes.data.result.longitude;
-                            locationSource = 'device_postcode (' + postcode + ')';
-                            console.log(`Resolved postcode ${postcode} -> lat: ${lat}, lon: ${lon}`);
-                            if (userId) locationCache.set(userId, { lat, lon, postcode });
-                            if (deviceId) locationCache.set(deviceId, { lat, lon, postcode });
-                        }
-                    } catch (geoErr) {
-                        console.error(`postcodes.io lookup failed for ${postcode}:`, geoErr.message);
+            const postcode = (address && typeof address === 'object' && address.postalCode)
+                ? address.postalCode.trim().toUpperCase()
+                : null;
+
+            if (postcode) {
+                permissionDenied = false;
+                let resolved = false;
+
+                // 1. Try full UK postcode lookup (e.g. SW1A 1AA or SW1A1AA)
+                try {
+                    const cleanCode = postcode.replace(/\s+/g, '');
+                    const geoUrl = 'https://api.postcodes.io/postcodes/' + encodeURIComponent(cleanCode);
+                    const geoRes = await axios.get(geoUrl, { timeout: 4000 });
+                    if (geoRes.data && geoRes.data.result) {
+                        lat = geoRes.data.result.latitude;
+                        lon = geoRes.data.result.longitude;
+                        locationSource = 'device_postcode (' + postcode + ')';
+                        resolved = true;
+                        console.log(`Resolved postcode ${postcode} -> lat: ${lat}, lon: ${lon}`);
+                        if (userId) locationCache.set(userId, { lat, lon, postcode });
+                        if (deviceId) locationCache.set(deviceId, { lat, lon, postcode });
                     }
-                } else if (!permissionDenied) {
-                    noAddressSet = true;
-                    console.log("Device address returned but postalCode field is empty.");
+                } catch (geoErr) {
+                    console.log(`postcodes.io full postcode lookup failed for ${postcode}, checking outcode fallback...`);
                 }
+
+                // 2. If full postcode failed (or user entered partial outcode like "SW1A" or "E1"), try outcode
+                if (!resolved) {
+                    try {
+                        const outcode = postcode.split(' ')[0].trim();
+                        const outUrl = 'https://api.postcodes.io/outcodes/' + encodeURIComponent(outcode);
+                        const outRes = await axios.get(outUrl, { timeout: 4000 });
+                        if (outRes.data && outRes.data.result) {
+                            lat = outRes.data.result.latitude;
+                            lon = outRes.data.result.longitude;
+                            locationSource = 'device_outcode (' + outcode + ')';
+                            resolved = true;
+                            console.log(`Resolved outcode ${outcode} -> lat: ${lat}, lon: ${lon}`);
+                            if (userId) locationCache.set(userId, { lat, lon, postcode: outcode });
+                            if (deviceId) locationCache.set(deviceId, { lat, lon, postcode: outcode });
+                        }
+                    } catch (outErr) {
+                        console.error(`postcodes.io outcode lookup failed for ${postcode}:`, outErr.message);
+                    }
+                }
+
+                if (!resolved) {
+                    invalidPostcode = postcode;
+                    console.log(`Postcode ${postcode} could not be resolved to UK coordinates.`);
+                }
+            } else if (!permissionDenied) {
+                noAddressSet = true;
+                console.log("Device address has no postalCode or address is empty/null (HTTP 204 or missing).");
             }
         } catch (clientErr) {
             console.error("Device address client error:", clientErr.message);
@@ -188,7 +222,7 @@ async function resolveCoordinates(handlerInput) {
         console.log(`Falling back to default Central London (${locationSource})`);
     }
 
-    return { lat, lon, locationSource, permissionDenied, noAddressSet, userId, deviceId };
+    return { lat, lon, locationSource, permissionDenied, noAddressSet, invalidPostcode, userId, deviceId };
 }
 
 async function pushToDataStore(endpoint, targetInfo, mappedArrivals, stationName) {
@@ -327,7 +361,7 @@ const GetDeparturesIntentHandler = {
         const { requestEnvelope, responseBuilder } = handlerInput;
 
         const loc = await resolveCoordinates(handlerInput);
-        const { lat, lon, permissionDenied, noAddressSet, userId, deviceId } = loc;
+        const { lat, lon, permissionDenied, noAddressSet, invalidPostcode, userId, deviceId } = loc;
         let stationDisplayName = "London Departures";
 
         let mappedArrivals = [];
@@ -362,8 +396,10 @@ const GetDeparturesIntentHandler = {
         if (permissionDenied) {
             responseBuilder.withAskForPermissionsConsentCard(['read::alexa:device:all:address']);
             speakOutput = 'To show departures for your local stops, please enable device address permissions in the Alexa app. I have sent a permissions card to your app. ' + speakOutput;
+        } else if (invalidPostcode) {
+            speakOutput = `I found postcode ${invalidPostcode} on your device, but could not locate UK transit stops for it. Please check your Device Location in the Alexa app. Showing central London departures for now. ` + speakOutput;
         } else if (noAddressSet) {
-            speakOutput = 'Your Echo device does not have an address configured in the Alexa app device settings. Showing central London departures for now. ' + speakOutput;
+            speakOutput = 'Your Echo Show does not have a Device Location address configured yet in the Alexa app. In the Alexa app, go to Devices, select your Echo Show, open Device Settings, and set your Device Location with a UK postcode. Showing central London departures for now. ' + speakOutput;
         }
 
         const supportedInterfaces = Alexa.getSupportedInterfaces(requestEnvelope);
