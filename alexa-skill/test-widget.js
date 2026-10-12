@@ -6,7 +6,11 @@ const event = {
         arguments: ['RefreshWidget']
     },
     context: {
-        // What if System is missing?
+        System: {
+            apiEndpoint: 'https://api.eu.amazonalexa.com',
+            user: { userId: 'amzn1.ask.account.TEST' },
+            device: { deviceId: 'amzn1.ask.device.TEST' }
+        }
     }
 };
 

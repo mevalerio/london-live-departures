@@ -104,6 +104,93 @@ async function getDataStoreToken() {
     return cachedDataStoreToken;
 }
 
+const locationCache = new Map();
+
+async function resolveCoordinates(handlerInput) {
+    const { requestEnvelope, serviceClientFactory } = handlerInput;
+    const system = (requestEnvelope.context && requestEnvelope.context.System) || {};
+    const device = system.device || null;
+    const deviceId = device ? device.deviceId : null;
+    const user = system.user || null;
+    const userId = user ? user.userId : null;
+
+    let lat = null;
+    let lon = null;
+    let locationSource = 'none';
+    let permissionDenied = false;
+    let noAddressSet = false;
+
+    if (deviceId && serviceClientFactory) {
+        let address = null;
+        try {
+            const deviceAddressClient = serviceClientFactory.getDeviceAddressServiceClient();
+            try {
+                address = await deviceAddressClient.getFullAddress(deviceId);
+                console.log("DeviceAddressClient getFullAddress succeeded:", JSON.stringify(address));
+            } catch (errFull) {
+                console.log("getFullAddress error:", errFull.statusCode || errFull.message);
+                if (errFull.statusCode === 403 || (errFull.name === 'ServiceError' && errFull.statusCode === 403)) {
+                    permissionDenied = true;
+                }
+                try {
+                    address = await deviceAddressClient.getCountryAndPostalCode(deviceId);
+                    console.log("DeviceAddressClient getCountryAndPostalCode succeeded:", JSON.stringify(address));
+                } catch (errCountry) {
+                    console.log("getCountryAndPostalCode error:", errCountry.statusCode || errCountry.message);
+                    if (errCountry.statusCode === 403 || (errCountry.name === 'ServiceError' && errCountry.statusCode === 403)) {
+                        permissionDenied = true;
+                    }
+                }
+            }
+
+            if (address) {
+                const postcode = address.postalCode ? address.postalCode.trim().toUpperCase() : null;
+                if (postcode) {
+                    permissionDenied = false;
+                    try {
+                        const geoUrl = 'https://api.postcodes.io/postcodes/' + encodeURIComponent(postcode);
+                        const geoRes = await axios.get(geoUrl, { timeout: 4000 });
+                        if (geoRes.data && geoRes.data.result) {
+                            lat = geoRes.data.result.latitude;
+                            lon = geoRes.data.result.longitude;
+                            locationSource = 'device_postcode (' + postcode + ')';
+                            console.log(`Resolved postcode ${postcode} -> lat: ${lat}, lon: ${lon}`);
+                            if (userId) locationCache.set(userId, { lat, lon, postcode });
+                            if (deviceId) locationCache.set(deviceId, { lat, lon, postcode });
+                        }
+                    } catch (geoErr) {
+                        console.error(`postcodes.io lookup failed for ${postcode}:`, geoErr.message);
+                    }
+                } else if (!permissionDenied) {
+                    noAddressSet = true;
+                    console.log("Device address returned but postalCode field is empty.");
+                }
+            }
+        } catch (clientErr) {
+            console.error("Device address client error:", clientErr.message);
+        }
+    }
+
+    if (lat === null || lon === null) {
+        const cached = (userId && locationCache.get(userId)) || (deviceId && locationCache.get(deviceId));
+        if (cached) {
+            lat = cached.lat;
+            lon = cached.lon;
+            locationSource = 'cache (' + cached.postcode + ')';
+            console.log(`Using cached location: ${locationSource} -> lat: ${lat}, lon: ${lon}`);
+        }
+    }
+
+    if (lat === null || lon === null) {
+        lat = 51.5014;
+        lon = -0.1250;
+        locationSource = 'default (Westminster)';
+        console.log(`Falling back to default Central London (${locationSource})`);
+    }
+
+    return { lat, lon, locationSource, permissionDenied, noAddressSet, userId, deviceId };
+}
+
 async function pushToDataStore(endpoint, targetInfo, mappedArrivals, stationName) {
     if (!endpoint || !targetInfo) {
         return;
@@ -120,6 +207,8 @@ async function pushToDataStore(endpoint, targetInfo, mappedArrivals, stationName
         ? mappedArrivals
         : [{ isHeader: false, line: "No departures", destination: "listed", time: "--" }];
     const validStationName = stationName || "Local Departures";
+    const now = new Date();
+    const updatedTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
 
     try {
         const token = await getDataStoreToken();
@@ -149,7 +238,7 @@ async function pushToDataStore(endpoint, targetInfo, mappedArrivals, stationName
                 'Content-Type': 'application/json'
             }
         });
-        console.log("DataStore push status:", res.status);
+        console.log("DataStore push status:", res.status, "updatedTime:", updatedTime);
     } catch (err) {
         console.error("DataStore push failed:", err.message);
     }
@@ -159,7 +248,7 @@ async function fetchDeparturesForLocation(lat, lon) {
     const radius = 2000;
     const url = 'https://api.tfl.gov.uk/StopPoint/?lat=' + lat + '&lon=' + lon + '&stopTypes=NaptanPublicBusCoachTram,NaptanMetroStation,NaptanRailStation&radius=' + radius;
     
-    let res = await axios.get(url);
+    let res = await axios.get(url, { timeout: 4000 });
     let stopPoints = res.data.stopPoints || [];
     if (stopPoints.length === 0) return [];
 
@@ -171,7 +260,7 @@ async function fetchDeparturesForLocation(lat, lon) {
         const stopId = stop.naptanId || stop.id;
         const arrivalsUrl = 'https://api.tfl.gov.uk/StopPoint/' + stopId + '/Arrivals';
         
-        const p = axios.get(arrivalsUrl).then(depRes => {
+        const p = axios.get(arrivalsUrl, { timeout: 4000 }).then(depRes => {
             return { stop: stop, data: depRes.data || [] };
         }).catch(e => {
             return { stop: stop, data: [] };
@@ -235,34 +324,11 @@ const GetDeparturesIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'GetDeparturesIntent');
     },
     async handle(handlerInput) {
-        const { requestEnvelope, serviceClientFactory, responseBuilder } = handlerInput;
+        const { requestEnvelope, responseBuilder } = handlerInput;
 
-        let lat = 51.5014;
-        let lon = -0.1250;
+        const loc = await resolveCoordinates(handlerInput);
+        const { lat, lon, permissionDenied, noAddressSet, userId, deviceId } = loc;
         let stationDisplayName = "London Departures";
-
-        const system = requestEnvelope.context && requestEnvelope.context.System ? requestEnvelope.context.System : {};
-        const device = system.device || null;
-        const deviceId = device ? device.deviceId : null;
-        const user = system.user || null;
-        const userId = user ? user.userId : null;
-
-        if (deviceId && serviceClientFactory) {
-            try {
-                const deviceAddressClient = serviceClientFactory.getDeviceAddressServiceClient();
-                const address = await deviceAddressClient.getFullAddress(deviceId);
-                if (address && address.postalCode) {
-                    const safePostcode = encodeURIComponent(address.postalCode.trim());
-                    const geoRes = await axios.get('https://api.postcodes.io/postcodes/' + safePostcode);
-                    if (geoRes.data && geoRes.data.result) {
-                        lat = geoRes.data.result.latitude;
-                        lon = geoRes.data.result.longitude;
-                    }
-                }
-            } catch (err) {
-                console.log("Device address unavailable, falling back to central London:", err.message);
-            }
-        }
 
         let mappedArrivals = [];
         try {
@@ -291,6 +357,13 @@ const GetDeparturesIntentHandler = {
         } else {
             mappedArrivals = [{ isHeader: false, line: 'No departures', destination: 'listed', time: '--' }];
             speakOutput = 'I could not find any live departures right now.';
+        }
+
+        if (permissionDenied) {
+            responseBuilder.withAskForPermissionsConsentCard(['read::alexa:device:all:address']);
+            speakOutput = 'To show departures for your local stops, please enable device address permissions in the Alexa app. I have sent a permissions card to your app. ' + speakOutput;
+        } else if (noAddressSet) {
+            speakOutput = 'Your Echo device does not have an address configured in the Alexa app device settings. Showing central London departures for now. ' + speakOutput;
         }
 
         const supportedInterfaces = Alexa.getSupportedInterfaces(requestEnvelope);
@@ -346,14 +419,14 @@ const WidgetEventHandler = {
         const type = Alexa.getRequestType(handlerInput.requestEnvelope);
         if (type === 'Alexa.Presentation.APL.UserEvent') {
             const args = handlerInput.requestEnvelope.request.arguments;
-            return args && args.length > 0 && args[0] === 'RefreshWidget';
+            return !args || args.length === 0 || args[0] === 'RefreshWidget';
         }
         return type === 'Alexa.DataStore.PackageManager.UsagesInstalled' ||
                type === 'Alexa.DataStore.PackageManager.UpdateRequest' ||
                type === 'Alexa.DataStore.PackageManager.UsagesRemoved';
     },
     async handle(handlerInput) {
-        console.log("🔥 WIDGET BACKGROUND EVENT RECEIVED!");
+        console.log("🔥 WIDGET EVENT RECEIVED:", handlerInput.requestEnvelope.request.type);
         const request = handlerInput.requestEnvelope.request;
 
         if (request.type === 'Alexa.DataStore.PackageManager.UsagesRemoved') {
@@ -361,31 +434,9 @@ const WidgetEventHandler = {
         }
 
         try {
-            const { requestEnvelope, serviceClientFactory } = handlerInput;
-            const system = requestEnvelope.context && requestEnvelope.context.System ? requestEnvelope.context.System : {};
-            const device = system.device || null;
-            const deviceId = device ? device.deviceId : null;
-            const user = system.user || null;
-            const userId = user ? user.userId : null;
-
-            let lat = 51.5014;
-            let lon = -0.1250;
-
-            if (deviceId && serviceClientFactory) {
-                try {
-                    const deviceAddressServiceClient = serviceClientFactory.getDeviceAddressServiceClient();
-                    const address = await deviceAddressServiceClient.getFullAddress(deviceId);
-                    if (address && address.postalCode) {
-                        const geoRes = await axios.get('https://api.postcodes.io/postcodes/' + encodeURIComponent(address.postalCode));
-                        if (geoRes.data && geoRes.data.result) {
-                            lat = geoRes.data.result.latitude;
-                            lon = geoRes.data.result.longitude;
-                        }
-                    }
-                } catch (err) {
-                    console.log("Widget location fallback:", err.message);
-                }
-            }
+            const { requestEnvelope } = handlerInput;
+            const loc = await resolveCoordinates(handlerInput);
+            const { lat, lon, userId, deviceId } = loc;
 
             const mappedArrivals = await fetchDeparturesForLocation(lat, lon);
             let stationDisplayName = "Local Departures";

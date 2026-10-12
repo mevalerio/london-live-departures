@@ -35,9 +35,15 @@
             },
             {
               "type": "TouchWrapper",
+              "paddingLeft": "12dp",
+              "paddingRight": "12dp",
+              "paddingTop": "8dp",
+              "paddingBottom": "8dp",
               "onPress": {
                 "type": "SendEvent",
-                "interactionMode": "INLINE",
+                "flags": {
+                  "interactionMode": "INLINE"
+                },
                 "arguments": [
                   "RefreshWidget"
                 ]
