@@ -20,12 +20,14 @@ Rules and learned insights for developing, debugging, and testing Alexa-hosted s
   }
   ```
   Echo devices reject top-level `type: 'list'` datasources with hard errors, even if the developer simulator accepts them.
+- **Widget Lists Need Their Own DataStore `ARRAY` Key:** A `Sequence`'s `data` is read only once, when the widget is drawn. If the list sits inside a DataStore `object` binding (e.g. `liveBoard.arrivals`), text fields like the station name update on every push but the list stays frozen. Store the list under its own key (`arrivals`), bind it with `"dataType": "ARRAY"` (`liveArrivals`), and send it as a separate `PUT_OBJECT` whose `content` is the array itself.
 
 ## 3. DataStore API & Voice Error Decoupling
 - **OAuth 2.0 Client Credentials Token Required:**
   - The Amazon DataStore REST API (`/v1/datastore/commands`) rejects in-session `apiAccessToken` with `401: Unknown authentication token type`.
   - Always use a Login with Amazon (LWA) OAuth 2.0 client credentials token with scope `alexa::datastore` using skill messaging credentials (`clientId` and `clientSecret`).
   - Cache this access token in memory to avoid redundant authentication requests.
+  - Alexa-hosted skills cannot set custom Lambda environment variables. `index.js` reads `LWA_CLIENT_ID` / `LWA_CLIENT_SECRET` from the environment first, then falls back to `lambda/credentials.json`. Keep that file tracked in the private Alexa-hosted repo, and never commit it to GitHub (it is in `.gitignore`).
 - **Decouple Background / Widget Sync from Voice Responses:**
   - Never allow DataStore / widget synchronization failures to affect the voice response (`speakOutput`).
   - Never inject raw JSON, stack traces, or special characters into SSML `<speak>...</speak>`, as Alexa will terminate the session with *"There was a problem with the requested skill's response"*.

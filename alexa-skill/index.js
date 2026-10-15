@@ -74,18 +74,23 @@ const departureBoardDocument = {
     }
 };
 
-let LWA_CLIENT_ID = process.env.LWA_CLIENT_ID || "";
-let LWA_CLIENT_SECRET = process.env.LWA_CLIENT_SECRET || "";
+// Alexa-hosted skills cannot set Lambda environment variables, so fall back to
+// credentials.json deployed next to index.js (never commit it to GitHub).
+let fileCredentials = {};
 try {
-    const creds = require('./credentials.json');
-    if (creds.clientId) LWA_CLIENT_ID = creds.clientId;
-    if (creds.clientSecret) LWA_CLIENT_SECRET = creds.clientSecret;
+    fileCredentials = require('./credentials.json');
 } catch (e) {}
+
+const LWA_CLIENT_ID = process.env.LWA_CLIENT_ID || fileCredentials.clientId || "";
+const LWA_CLIENT_SECRET = process.env.LWA_CLIENT_SECRET || fileCredentials.clientSecret || "";
 
 let cachedDataStoreToken = null;
 let tokenExpiresAt = 0;
 
 async function getDataStoreToken() {
+    if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET) {
+        throw new Error("LWA_CLIENT_ID / LWA_CLIENT_SECRET not set. Set them as environment variables or in credentials.json.");
+    }
     const now = Date.now();
     if (cachedDataStoreToken && now < tokenExpiresAt - 60000) {
         return cachedDataStoreToken;
@@ -257,12 +262,20 @@ async function pushToDataStore(endpoint, targetInfo, mappedArrivals, stationName
                     content: {
                         type: "object",
                         stationName: validStationName,
-                        arrivals: validArrivals,
+                        updatedTime: updatedTime,
                         properties: {
                             stationName: validStationName,
-                            arrivals: validArrivals
+                            updatedTime: updatedTime
                         }
                     }
+                },
+                // The widget list binds to this key as an ARRAY. A list nested inside
+                // the liveBoard object is only read once, so it would never refresh.
+                {
+                    type: "PUT_OBJECT",
+                    namespace: "LondonDepartures",
+                    key: "arrivals",
+                    content: validArrivals
                 }
             ]
         };
@@ -274,19 +287,60 @@ async function pushToDataStore(endpoint, targetInfo, mappedArrivals, stationName
         });
         console.log("DataStore push status:", res.status, "updatedTime:", updatedTime);
     } catch (err) {
-        console.error("DataStore push failed:", err.message);
+        console.error("DataStore push failed:", err.message, err.response ? JSON.stringify(err.response.data) : "");
     }
 }
 
-async function fetchDeparturesForLocation(lat, lon) {
-    const radius = 2000;
-    const url = 'https://api.tfl.gov.uk/StopPoint/?lat=' + lat + '&lon=' + lon + '&stopTypes=NaptanPublicBusCoachTram,NaptanMetroStation,NaptanRailStation&radius=' + radius;
+const VOICE_STOP_POINT_TIMEOUT_MS = 4000;
+const WIDGET_STOP_POINT_TIMEOUT_MS = 7000;
+const MAX_NEAREST_STOPS = 3;
+const STOP_POINT_RADII_M = [300, 1000, 2000];
+const STOP_POINT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const STOP_POINT_CACHE_MAX_ENTRIES = 100;
+const stopPointCache = new Map();
+
+// TfL has no result limit, so start with a small radius and widen only if it holds fewer than three stops.
+// Results are sorted by distance, so the first three from any radius with at least three are the closest overall.
+async function requestNearestStops(lat, lon, timeoutMs) {
+    let stopPoints = [];
+    for (const radius of STOP_POINT_RADII_M) {
+        const url = 'https://api.tfl.gov.uk/StopPoint/?lat=' + lat + '&lon=' + lon + '&stopTypes=NaptanPublicBusCoachTram,NaptanMetroStation,NaptanRailStation&radius=' + radius;
+        const res = await axios.get(url, { timeout: timeoutMs });
+        stopPoints = res.data.stopPoints || [];
+        if (stopPoints.length >= MAX_NEAREST_STOPS) break;
+    }
+    return stopPoints.slice(0, MAX_NEAREST_STOPS);
+}
+
+async function fetchStopPoints(lat, lon, timeoutMs) {
+    const key = Number(lat).toFixed(3) + ',' + Number(lon).toFixed(3);
+    const cached = stopPointCache.get(key);
+    if (cached && Date.now() - cached.fetchedAt < STOP_POINT_CACHE_TTL_MS) {
+        return cached.stopPoints;
+    }
+
+    try {
+        const stopPoints = await requestNearestStops(lat, lon, timeoutMs);
+        if (stopPointCache.size >= STOP_POINT_CACHE_MAX_ENTRIES) {
+            stopPointCache.delete(stopPointCache.keys().next().value);
+        }
+        stopPointCache.set(key, { stopPoints, fetchedAt: Date.now() });
+        return stopPoints;
+    } catch (err) {
+        if (cached) {
+            console.warn("StopPoint fetch failed, using cached stops:", err.message);
+            return cached.stopPoints;
+        }
+        throw err;
+    }
+}
+
+async function fetchDeparturesForLocation(lat, lon, stopPointTimeoutMs = VOICE_STOP_POINT_TIMEOUT_MS) {
     
-    let res = await axios.get(url, { timeout: 4000 });
-    let stopPoints = res.data.stopPoints || [];
+    const stopPoints = await fetchStopPoints(lat, lon, stopPointTimeoutMs);
     if (stopPoints.length === 0) return [];
 
-    const limitStops = Math.min(stopPoints.length, 3);
+    const limitStops = Math.min(stopPoints.length, MAX_NEAREST_STOPS);
     const fetchPromises = [];
     
     for (let i = 0; i < limitStops; i++) {
@@ -474,7 +528,7 @@ const WidgetEventHandler = {
             const loc = await resolveCoordinates(handlerInput);
             const { lat, lon, userId, deviceId } = loc;
 
-            const mappedArrivals = await fetchDeparturesForLocation(lat, lon);
+            const mappedArrivals = await fetchDeparturesForLocation(lat, lon, WIDGET_STOP_POINT_TIMEOUT_MS);
             let stationDisplayName = "Local Departures";
             if (mappedArrivals && mappedArrivals.length > 0) {
                 let closestTrain = null;
@@ -496,7 +550,7 @@ const WidgetEventHandler = {
                 await pushToDataStore(endpoint, { userId, deviceId }, mappedArrivals, stationDisplayName);
             }
         } catch (error) {
-            console.error("Widget EventHandler error:", error.message);
+            console.error("Widget refresh failed, DataStore not updated:", error.message);
         }
 
         return handlerInput.responseBuilder.getResponse();
@@ -528,7 +582,7 @@ const FallbackIntentHandler = {
 const ErrorHandler = {
     canHandle() { return true; },
     handle(handlerInput, error) {
-        console.log('Error handled: ' + error.message);
+        console.log('Error handled: ' + error.message, 'Request:', JSON.stringify(handlerInput.requestEnvelope.request));
         return handlerInput.responseBuilder.speak('Sorry, something went wrong.').getResponse();
     }
 };
